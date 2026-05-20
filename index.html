@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZOO MANIA - Sistema Oficial</title>
+    <style>
+        :root { --primary: #1b5e20; --dark: #003300; --light: #e8f5e9; --gray: #f4f4f4; --accent: #2e7d32; --warning: #ef6c00; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background-color: var(--gray); -webkit-tap-highlight-color: transparent; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+        .metric-card { background: var(--light); padding: 12px; border-radius: 8px; border-left: 5px solid var(--primary); text-align: center; }
+        .metric-card h3 { font-size: 11px; margin: 0; color: #666; text-transform: uppercase; }
+        .metric-card p { margin: 5px 0 0 0; font-weight: bold; font-size: 15px; color: var(--primary); }
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; outline: none; }
+        button { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:active { transform: scale(0.98); background: var(--dark); }
+        .grid-bichos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 15px; }
+        .bicho-item { padding: 10px 2px; background: #eee; border-radius: 6px; text-align: center; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid #ddd; }
+        .bicho-item.selected { background: var(--accent); color: white; border-color: var(--dark); }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+        th { background: var(--primary); color: white; }
+        .hidden { display: none !important; }
+        .area-cadastro { background: #f1f8e9; padding: 15px; border-radius: 8px; border: 1px dashed var(--primary); margin-top: 20px; }
+        .btn-sorteio { background: var(--warning); margin-top: 8px; font-size: 14px; }
+        .modal-sucesso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; box-sizing: border-box; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div id="telaLogin" class="card">
+        <h2 style="text-align:center; color: var(--primary); margin-top:0;">🐾 ZOO MANIA</h2>
+        <input type="text" id="user" placeholder="Usuário">
+        <input type="password" id="pass" placeholder="Senha">
+        <button onclick="login()">ENTRAR</button>
+        <p id="msg" style="color:red; text-align:center; font-weight:bold;"></p>
+    </div>
+
+    <!-- ÁREA LOGADA -->
+    <div id="areaLogada" class="hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 id="boasVindas" style="color:var(--primary); margin:0; font-size:18px;">Olá</h3>
+            <button onclick="logout()" style="width:auto; background:#c62828; padding:8px 15px; font-size:12px;">SAIR</button>
+        </div>
+
+        <!-- PAINEL VENDEDOR -->
+        <div id="painelVendedor" class="card hidden">
+            <h4 style="margin-top:0;">🛒 Registrar Aposta</h4>
+            <input type="text" id="cliNome" placeholder="Nome do Cliente">
+            <input type="number" id="cliWhats" placeholder="WhatsApp (55 + DDD + Número)">
+            <select id="tipo" onchange="atualizarValoresVendedor()">
+                <option value="Manha">Sorteio Manhã (R$ 3,00)</option>
+                <option value="Tarde">Sorteio Tarde (R$ 3,00)</option>
+                <option value="Casado">Combo Casado (R$ 5,00)</option>
+            </select>
+            <div class="grid-bichos" id="gridVenda"></div>
+            <div style="text-align:right; border-top: 1px solid #ddd; padding-top: 10px;">
+                <p style="margin:0; font-size:13px;">Valor: <strong id="valor">R$ 3,00</strong></p>
+                <p style="margin:0; font-size:15px; color: var(--accent);">Sua Comissão: <strong id="comissaoVendedor">R$ 0,60</strong></p>
+            </div>
+            <br>
+            <button id="btnRegistrar" onclick="vender()">GERAR BILHETE</button>
+        </div>
+
+        <!-- PAINEL GERENTE -->
+        <div id="painelGerente" class="card hidden">
+            <h4 style="margin-top:0;">📊 Painel Gerente</h4>
+            <div class="metric-grid">
+                <div class="metric-card"><h3>Entrou Bruto</h3><p id="gEntrou">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Repasse Master</h3><p id="gMaster" style="color:red">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Minha Comissão</h3><p id="gComi">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Comissão Equipe</h3><p id="gEqui">R$ 0,00</p></div>
+            </div>
+            <table id="tblVendedores"><thead><tr><th>Vendedor</th><th>Cobrar (80%)</th></tr></thead><tbody id="corpoGerente"></tbody></table>
+            <div class="area-cadastro">
+                <h4 style="margin-top:0;">➕ Novo Vendedor</h4>
+                <input type="text" id="cadVenNome" placeholder="Nome">
+                <input type="password" id="cadVenSenha" placeholder="Senha">
+                <button onclick="cadastrar('Vendedor')">SALVAR</button>
+            </div>
+        </div>
+
+        <!-- PAINEL MASTER -->
+        <div id="painelMaster" class="card hidden">
+            <h4 style="margin-top:0;">👑 Painel Master</h4>
+            <div class="metric-grid">
+                <div class="metric-card"><h3>Total Cidade</h3><p id="mTotal">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Meu Lucro (30%)</h3><p id="mLucro">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Fundo Prêmios</h3><p id="mPremio">R$ 0,00</p></div>
+                <div class="metric-card"><h3>Comissões Pagas</h3><p id="mComis">R$ 0,00</p></div>
+            </div>
+            <h4>📊 Repasse Gerentes (60% p/ Master)</h4>
+            <table><thead><tr><th>Gerente</th><th>Valor a Receber</th></tr></thead><tbody id="corpoMaster"></tbody></table>
+            
+            <div class="area-cadastro">
+                <h4 style="margin-top:0;">➕ Novo Gerente</h4>
+                <input type="text" id="cadMasNome" placeholder="Nome">
+                <input type="password" id="cadMasSenha" placeholder="Senha">
+                <button onclick="cadastrar('Master')">SALVAR GERENTE</button>
+            </div>
+
+            <div style="background:#fff3e0; padding:15px; border-radius:10px; margin-top:20px; border: 1px solid #ffe0b2;">
+                <h4 style="margin-top:0; color:var(--warning);">🎲 Controle de Sorteio</h4>
+                <select id="sorteioPeriodo">
+                    <option value="Manha">Manhã (12:00)</option>
+                    <option value="Tarde">Tarde (18:00)</option>
+                </select>
+                <button class="btn-sorteio" style="background:#2e7d32;" onclick="sortear('normal')">1. SORTEIO NORMAL</button>
+                <button class="btn-sorteio" style="background:#1565c0;" onclick="sortear('forcar')">2. FORÇAR GANHADOR</button>
+                <button class="btn-sorteio" style="background:#c62828;" onclick="sortear('bloquear')">3. FORÇAR ACÚMULO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE SUCESSO -->
+    <div id="modalSucesso" class="modal-sucesso hidden">
+        <div class="modal-content">
+            <h2 style="color:var(--primary); margin-top:0;">✅ REGISTRADO!</h2>
+            <p id="txtBilheteSucesso" style="font-size:18px; font-weight:bold;"></p>
+            <button id="btnWhats" style="background:#25D366; font-size:18px; padding:15px; margin-bottom:15px;">📲 ENVIAR COMPROVANTE</button>
+            <button onclick="fecharModal()" style="background:#666; font-size:14px; padding:10px;">FECHAR</button>
+        </div>
+    </div>
+
+<script>
+    // COLE SEU LINK ABAIXO
+    const API = "https://script.google.com/macros/s/AKfycbxRqWNORPcro38abRtgtl8xb-S6zmsgcBWaJAwo0ASfpEEbjMKWHFuQOJqSQHPPQCkreA/exec";
+    
+    const bichos = ["01-Avestruz","02-Águia","03-Burro","04-Borboleta","05-Cachorro","06-Cabra","07-Carneiro","08-Camelo","09-Cobra","10-Coelho","11-Cavalo","12-Elefante","13-Galo","14-Gato","15-Jacaré","16-Leão","17-Macaco","18-Porco","19-Pavão","20-Peru","21-Touro","22-Tigre","23-Urso","24-Veado","25-Vaca"];
+    let sel = [];
+
+    window.onload = () => {
+        const u = localStorage.getItem('zoo_user');
+        const c = localStorage.getItem('zoo_cargo');
+        if(u && c) exibirPainel(u, c);
+    };
+
+    function login() {
+        const u = document.getElementById('user').value.trim();
+        const s = document.getElementById('pass').value.trim();
+        if(!u || !s) return;
+        document.getElementById('msg').innerText = "Validando...";
+        fetch(API, {method:"POST", body: JSON.stringify({action:"login", usuario:u, senha:s})})
+        .then(r => r.json()).then(res => {
+            if(res.status === "SUCESSO") {
+                localStorage.setItem('zoo_user', u);
+                localStorage.setItem('zoo_cargo', res.cargo);
+                exibirPainel(u, res.cargo);
+            } else { document.getElementById('msg').innerText = res.msg; }
+        }).catch(() => { document.getElementById('msg').innerText = "Erro de conexão"; });
+    }
+
+    function logout() { localStorage.clear(); location.reload(); }
+
+    function exibirPainel(u, c) {
+        document.getElementById('telaLogin').classList.add('hidden');
+        document.getElementById('areaLogada').classList.remove('hidden');
+        document.getElementById('boasVindas').innerText = "Olá, " + u;
+        if(c === "Vendedor") { document.getElementById('painelVendedor').classList.remove('hidden'); montarBichos(); }
+        else if(c === "Gerente") { document.getElementById('painelGerente').classList.remove('hidden'); carregarDados(); }
+        else if(c === "Master") { document.getElementById('painelMaster').classList.remove('hidden'); carregarDados(); }
+    }
+
+    function montarBichos() {
+        const grid = document.getElementById('gridVenda'); grid.innerHTML = "";
+        bichos.forEach(b => {
+            let d = document.createElement('div'); d.className = 'bicho-item'; d.innerText = b;
+            d.onclick = () => {
+                if(sel.includes(b)) { sel = sel.filter(x => x!==b); d.classList.remove('selected'); }
+                else if(sel.length < 6) { sel.push(b); d.classList.add('selected'); }
+            };
+            grid.appendChild(d);
+        });
+    }
+
+    function carregarDados() {
+        fetch(API + "?action=buscarDados").then(r => r.json()).then(res => {
+            const u = localStorage.getItem('zoo_user');
+            const c = localStorage.getItem('zoo_cargo');
+            
+            let totalGeral = 0;
+            let totalGerente = 0;
+            let gersMap = {};
+            let vedsMap = {};
+
+            res.apostas.forEach(a => {
+                let valor = parseFloat(a[7]) || 0;
+                totalGeral += valor;
+
+                let infoV = res.equipe.find(e => e[0] === a[6]);
+                if(infoV) {
+                    let gNome = infoV[2];
+                    if(gNome) gersMap[gNome] = (gersMap[gNome] || 0) + valor;
+                    
+                    if(gNome === u) {
+                        totalGerente += valor;
+                        vedsMap[a[6]] = (vedsMap[a[6]] || 0) + valor;
+                    }
+                }
+            });
+
+            if(c === "Gerente") {
+                document.getElementById('gEntrou').innerText = "R$ " + totalGerente.toFixed(2);
+                document.getElementById('gMaster').innerText = "R$ " + (totalGerente * 0.6).toFixed(2);
+                document.getElementById('gComi').innerText = "R$ " + (totalGerente * 0.2).toFixed(2);
+                document.getElementById('gEqui').innerText = "R$ " + (totalGerente * 0.2).toFixed(2);
+                let h = ""; for(let v in vedsMap) h += `<tr><td>${v}</td><td>R$ ${(vedsMap[v]*0.8).toFixed(2)}</td></tr>`;
+                document.getElementById('corpoGerente').innerHTML = h;
+            } else if(c === "Master") {
+                document.getElementById('mTotal').innerText = "R$ " + totalGeral.toFixed(2);
+                document.getElementById('mLucro').innerText = "R$ " + (totalGeral * 0.3).toFixed(2);
+                document.getElementById('mPremio').innerText = "R$ " + (totalGeral * 0.3).toFixed(2);
+                document.getElementById('mComis').innerText = "R$ " + (totalGeral * 0.4).toFixed(2);
+                let h = ""; for(let g in gersMap) h += `<tr><td>${g}</td><td>R$ ${(gersMap[g]*0.6).toFixed(2)}</td></tr>`;
+                document.getElementById('corpoMaster').innerHTML = h;
+            }
+        });
+    }
+
+    function sortear(modo) {
+        const periodo = document.getElementById('sorteioPeriodo').value;
+        let sorteados = [];
+        if (modo === 'normal') {
+            let copia = [...bichos];
+            for(let i=0; i<7; i++) sorteados.push(copia.splice(Math.floor(Math.random()*copia.length), 1)[0]);
+        } else if (modo === 'bloquear') {
+            sorteados = ["03-Burro", "08-Camelo", "12-Elefante", "15-Jacaré", "19-Pavão", "22-Tigre", "24-Veado"];
+        } else {
+            alert("Modo Forçar Ganhador: O sistema está analisando os bilhetes...");
+            return;
+        }
+
+        const lista = sorteados.join(", ");
+        fetch(API, {method:"POST", body: JSON.stringify({action:"salvarSorteio", periodo:periodo, bichos:lista})})
+        .then(r => r.json()).then(res => {
+            if(res.status === "SORTEIO_GRAVADO") {
+                alert(`🏆 SORTEIO REALIZADO COM SUCESSO!\n\n` +
+                      `📊 RESULTADO: ${lista}\n` +
+                      `---------------------------\n` +
+                      `🥇 6 ACERTOS: ${res.ganhadores.sena} ganhador(es)\n` +
+                      `🥈 5 ACERTOS: ${res.ganhadores.quina} ganhador(es)\n` +
+                      `🥉 4 ACERTOS: ${res.ganhadores.quadra} ganhador(es)\n\n` +
+                      `O resultado foi gravado e os jogos foram finalizados.`);
+                carregarDados();
+            }
+        }).catch(() => alert("Erro ao salvar sorteio!"));
+    }
+
+    function vender() {
+        const n = document.getElementById('cliNome').value;
+        const w = document.getElementById('cliWhats').value;
+        const t = document.getElementById('tipo').value;
+        const u = localStorage.getItem('zoo_user');
+        if(!n || sel.length < 6) return alert("Dados incompletos!");
+        const btn = document.getElementById('btnRegistrar');
+        btn.innerText = "PROCESSANDO..."; btn.disabled = true;
+        const v = t === 'Casado' ? 5 : 3;
+        fetch(API, {method:"POST", body: JSON.stringify({action:"salvarAposta", nome:n, whatsapp:w, bichos:sel.join(", "), tipo:t, vendedor:u, valor:v})})
+        .then(r => r.json()).then(res => {
+            document.getElementById('txtBilheteSucesso').innerText = "BILHETE: " + res.id;
+            document.getElementById('modalSucesso').classList.remove('hidden');
+            const msg = encodeURIComponent(`🐾 *ZOO MANIA*\n🎫 *BILHETE:* ${res.id}\n👤 *CLIENTE:* ${n}\n🕒 *SORTEIO:* ${t}\n🦁 *BICHOS:* ${sel.join(", ")}`);
+            document.getElementById('btnWhats').onclick = () => { window.location.href = `https://wa.me/${w}?text=${msg}`; };
+        });
+    }
+
+    function fecharModal() {
+        document.getElementById('modalSucesso').classList.add('hidden');
+        document.getElementById('cliNome').value = ""; document.getElementById('cliWhats').value = "";
+        sel = []; montarBichos();
+        document.getElementById('btnRegistrar').innerText = "GERAR BILHETE"; document.getElementById('btnRegistrar').disabled = false;
+        carregarDados();
+    }
+
+    function cadastrar(o) {
+        let n, s, c, g;
+        if(o === 'Master') { n = document.getElementById('cadMasNome').value; s = document.getElementById('cadMasSenha').value; c = "Gerente"; g = ""; }
+        else { n = document.getElementById('cadVenNome').value; s = document.getElementById('cadVenSenha').value; c = "Vendedor"; g = localStorage.getItem('zoo_user'); }
+        if(!n || !s) return;
+        fetch(API, {method:"POST", body: JSON.stringify({action:"cadastrarUsuario", nome:n, cargo:c, gerente:g, senha:s})}).then(() => { alert("Cadastro Realizado!"); carregarDados(); });
+    }
+
+    function atualizarValoresVendedor() {
+        const t = document.getElementById('tipo').value;
+        const v = t === 'Casado' ? 5 : 3;
+        document.getElementById('valor').innerText = "R$ " + v.toFixed(2);
+        document.getElementById('comissaoVendedor').innerText = "R$ " + (v * 0.2).toFixed(2);
+    }
+</script>
+</body>
+</html>
